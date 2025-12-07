@@ -11,6 +11,8 @@ import os
 from flask import request
 from openai import OpenAI
 
+from internal.schema.app_schema import CompletionReq
+
 
 class AppHandler:
     """应用控制器"""
@@ -18,6 +20,9 @@ class AppHandler:
     def completion(self):
         """聊天接口"""
         # 1.提取从接口中获取的输入
+        req = CompletionReq()
+        if not req.validate():
+            return req.errors
         query = request.json.get("query")
 
         # 2.构建OpenAi客户端，并发起请求
