@@ -1,0 +1,64 @@
+# Byte‑compiled / cache / compiled extensions
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment folders
+venv/
+env/
+.venv/
+ENV/
+env*/
+venv*/
+
+# Distribution / build / packaging artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# Test / coverage / cache files
+.coverage
+.coverage.*
+pytest_cache/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.dmypy/
+coverage.xml
+*.cover
+nosetests.xml
+coverage.xml
+
+# Logs, databases, runtime files
+*.log
+*.sqlite3
+*.db
+*.db-journal
+
+# Editor / IDE / OS files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Environment variables / secret config / local settings
+.env
+.env.*
+instance/         # 如果你的项目有 instance/ 文件夹 (如 Flask)
+local_settings.py
+
+# Jupyter / IPython / notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# Other common unwanted files / folders
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
