@@ -7,17 +7,41 @@
 @File   : app_handler.py
 """
 import os
+import uuid
+from dataclasses import dataclass
 
 from flask import request
+from injector import inject
 from openai import OpenAI
 
 from internal.exception import FailException
 from internal.schema.app_schema import CompletionReq
-from pkg.response import success_json, validate_error_json
+from internal.service import AppService
+from pkg.response import success_json, validate_error_json, success_message
 
 
+@inject
+@dataclass
 class AppHandler:
     """应用控制器"""
+
+    app_service: AppService
+
+    def create_app(self):
+        app = self.app_service.create_app()
+        return success_message(f"创建成功,id为{app.id}")
+
+    def get_app(self, id: uuid.UUID):
+        app = self.app_service.get_app(id)
+        return success_message(f"查询成功,名称为{app.name}")
+
+    def update_app(self, id: uuid.UUID):
+        app = self.app_service.update_app(id)
+        return success_message(f"更新成功,名称为{app.name}")
+
+    def delete_app(self, id: uuid.UUID):
+        app = self.app_service.delete_app(id)
+        return success_message(f"删除成功,id为{app.id}")
 
     def completion(self):
         """聊天接口"""
