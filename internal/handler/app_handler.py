@@ -10,9 +10,10 @@ import os
 import uuid
 from dataclasses import dataclass
 
-from flask import request
 from injector import inject
-from openai import OpenAI
+from langchain_community.chat_models import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 from internal.exception import FailException
 from internal.schema.app_schema import CompletionReq
@@ -49,22 +50,21 @@ class AppHandler:
         req = CompletionReq()
         if not req.validate():
             return validate_error_json(req.errors)
-        query = request.json.get("query")
 
         # 2.构建OpenAi客户端，并发起请求
-        client = OpenAI(
-            ## OPENAI_API_BASE_URL 不会读取到要单独传
+        llm = ChatOpenAI(
+            model="qwen3:8b",
             base_url=os.getenv("OPENAI_API_BASE_URL")
         )
+
         # 3.得到请求响应，然后讲OpenAi的响应传递给前端
-        completion = client.chat.completions.create(
-            model="qwen3:8b",
-            messages=[
-                {"role": "system", "content": "你是聊天机器人，请根据用户的输入回复对应的信息"},
-                {"role": "user", "content": query},
-            ]
-        )
-        content = completion.choices[0].message.content
+        prompt = ChatPromptTemplate.from_template("{query}")
+
+        ai_message = llm.invoke(prompt.invoke({"query": req.query.data}))
+
+        parser = StrOutputParser()
+
+        content = parser.invoke(ai_message)
 
         return success_json({"content": content})
 

@@ -13,6 +13,11 @@ from wtforms.validators import DataRequired, Length
 
 class CompletionReq(FlaskForm):
     """聊天请求参数"""
+
+    # 关闭Schema级csrf保护下
+    class Meta:
+        csrf = False
+        
     query = StringField("query", validators=[
         DataRequired(message="用户的提问是必填的"),
         Length(max=2000, message="用户的提问长度必须在2000内")
