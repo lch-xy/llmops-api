@@ -51,20 +51,19 @@ class AppHandler:
         if not req.validate():
             return validate_error_json(req.errors)
 
-        # 2.构建OpenAi客户端，并发起请求
+        # 2.构建组件
+        prompt = ChatPromptTemplate.from_template("{query}")
         llm = ChatOpenAI(
             model="qwen3:8b",
             base_url=os.getenv("OPENAI_API_BASE_URL")
         )
-
-        # 3.得到请求响应，然后讲OpenAi的响应传递给前端
-        prompt = ChatPromptTemplate.from_template("{query}")
-
-        ai_message = llm.invoke(prompt.invoke({"query": req.query.data}))
-
         parser = StrOutputParser()
 
-        content = parser.invoke(ai_message)
+        # 3.构建链
+        chain = prompt | llm | parser
+
+        # 4.调用链得到结果 要用req.query.data
+        content = chain.invoke({"query": req.query.data})
 
         return success_json({"content": content})
 
