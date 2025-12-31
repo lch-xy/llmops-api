@@ -9,11 +9,15 @@
 import os
 import uuid
 from dataclasses import dataclass
+from operator import itemgetter
 
 from injector import inject
+from langchain_classic.memory import ConversationBufferWindowMemory
+from langchain_community.chat_message_histories import FileChatMessageHistory
 from langchain_community.chat_models import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
 from internal.exception import FailException
 from internal.schema.app_schema import CompletionReq
@@ -44,26 +48,48 @@ class AppHandler:
         app = self.app_service.delete_app(id)
         return success_message(f"删除成功,id为{app.id}")
 
-    def completion(self):
+    def debug(self, app_id: uuid.UUID):
         """聊天接口"""
         # 1.提取从接口中获取的输入
         req = CompletionReq()
         if not req.validate():
             return validate_error_json(req.errors)
 
-        # 2.构建组件
-        prompt = ChatPromptTemplate.from_template("{query}")
+        # 2.创建prompt和记忆
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "你是一个强大的聊天助手，能根据用户的提问回复问题"),
+            MessagesPlaceholder("history"),
+            ("human", "{query}")
+        ])
+
+        memory = ConversationBufferWindowMemory(
+            k=5,
+            memory_key="history",
+            return_messages=True,
+            input_key="query",
+            output_key="output",
+            chat_memory=FileChatMessageHistory(
+                "./storage/memory/chat_history.txt"
+            )
+        )
+
+        # 3.创建大语言模型
         llm = ChatOpenAI(
             model="qwen3:8b",
             base_url=os.getenv("OPENAI_API_BASE_URL")
         )
-        parser = StrOutputParser()
 
-        # 3.构建链
-        chain = prompt | llm | parser
+        # 4.创建链应用
+        chain = RunnablePassthrough.assign(
+            history=RunnableLambda(memory.load_memory_variables) | itemgetter("history")
+        ) | prompt | llm | StrOutputParser()
 
-        # 4.调用链得到结果 要用req.query.data
-        content = chain.invoke({"query": req.query.data})
+        # 5.调用链获取响应内容
+        chain_input = {"query": req.query.data}
+        content = chain.invoke(chain_input)
+
+        # 6.将结果储存到存储中
+        memory.save_context(chain_input, {"output": content})
 
         return success_json({"content": content})
 
