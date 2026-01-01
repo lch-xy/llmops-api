@@ -4,12 +4,12 @@
 """
 @Time   : 2026/1/1 21:18
 @Author  : LCH
-@File   : 01. Ollama嵌入模型示例.py
+@File   : 1-Ollama嵌入模型示例.py
 """
 
 import dotenv
 import numpy as np
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from numpy.linalg import norm
 
 dotenv.load_dotenv()
