@@ -6,6 +6,7 @@
 @Author  : LCH
 @File   : 1-weaviate嵌入向量数据库示例.py
 """
+import os
 
 import dotenv
 import weaviate
@@ -45,9 +46,8 @@ metadatas = [
 # 2.创建连接客户端
 # client = weaviate.connect_to_local("127.0.0.1", "8080")
 client = weaviate.connect_to_weaviate_cloud(
-    cluster_url="hytkg9arrhiearjjdead8a.c0.us-west3.gcp.weaviate.cloud",
-    auth_credentials=AuthApiKey(
-        "aFd4S1lUaW1xd0JHVFhsal9rWmRBaFdFdUxmK0Rpd0tuV0Yvdkc1VnNMck00YW0vbEpRYU1LQTdSN1pvPV92MjAw"),
+    cluster_url=os.getenv("WEAVIATE_URL"),
+    auth_credentials=AuthApiKey(os.getenv("WEAVIATE_API_KEY")),
 )
 embedding = OllamaEmbeddings(model="embeddinggemma")
 
