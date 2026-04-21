@@ -6,15 +6,17 @@
 @Author  : LCH
 @File   : 1-基于工具调用的Agent.py
 """
+import base64
 import os
+import time
 
 import dotenv
+import requests
 from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_community.tools import GoogleSerperRun
-from langchain_community.tools.openai_dalle_image_generation import OpenAIDALLEImageGenerationTool
 from langchain_community.utilities import GoogleSerperAPIWrapper
-from langchain_community.utilities.dalle_image_generator import DallEAPIWrapper
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from pydantic.v1 import BaseModel, Field
 
@@ -40,11 +42,44 @@ google_serper = GoogleSerperRun(
     args_schema=GoogleSerperArgsSchema,
     api_wrapper=GoogleSerperAPIWrapper(),
 )
-dalle = OpenAIDALLEImageGenerationTool(
-    name="openai_dalle",
-    api_wrapper=DallEAPIWrapper(model="dall-e-3"),
-    # args_schema=DallEArgsSchema,
-)
+
+
+class OllamaImageGenerationTool(BaseTool):
+    name: str = "ollama_image_gen"
+    description: str = (
+        "使用 Ollama 本地模型生成图像的工具。"
+        "输入应该是生成图像的文本提示(prompt)。"
+    )
+    args_schema: type[BaseModel] = DallEArgsSchema
+
+    def _run(self, query: str) -> str:
+        url = "http://localhost:11434/v1/images/generations"
+        payload = {
+            "model": "x/flux2-klein",
+            "prompt": query,
+            "response_format": "b64_json"
+        }
+        try:
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+            res_data = response.json()
+
+            # 1. 提取 Base64 数据
+            b64_data = res_data['data'][0]['b64_json']
+
+            # 2. 保存为本地图片文件（当前文件夹）
+            file_name = f"img_{int(time.time())}.png"
+            with open(file_name, "wb") as f:
+                f.write(base64.b64decode(b64_data))
+
+            # 3. 打印路径并返回给模型
+            print(f"图片已生成并保存至当前文件夹: {file_name}")
+            return f"图像生成成功，文件名为: {file_name}"
+        except Exception as e:
+            return f"图像生成失败: {str(e)}"
+
+
+dalle = OllamaImageGenerationTool()
 tools = [google_serper, dalle]
 
 # 2.定义工具调用agent提示词模板
@@ -57,7 +92,7 @@ prompt = ChatPromptTemplate.from_messages([
 
 # 3.创建大语言模型
 llm = ChatOpenAI(
-    model="qwen3.5:9b",
+    model="qwen3.5:4b",
     base_url=os.getenv("OPENAI_API_BASE_URL"),
     temperature=0
 )
