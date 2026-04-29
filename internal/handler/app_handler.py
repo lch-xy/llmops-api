@@ -10,14 +10,17 @@ import os
 import uuid
 from dataclasses import dataclass
 from operator import itemgetter
+from typing import Dict, Any
 
 from injector import inject
+from langchain_classic.base_memory import BaseMemory
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_community.chat_message_histories import FileChatMessageHistory
 from langchain_community.chat_models import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableConfig
+from langchain_core.tracers import Run
 
 from internal.exception import FailException
 from internal.schema.app_schema import CompletionReq
@@ -47,6 +50,20 @@ class AppHandler:
     def delete_app(self, id: uuid.UUID):
         app = self.app_service.delete_app(id)
         return success_message(f"删除成功,id为{app.id}")
+
+    def _load_memory_variables(self, input: Dict[str, Any], config: RunnableConfig) -> Dict[str, Any]:
+        """加载记忆变量"""
+        configurable = config.get("configurable", {})
+        configurable_memory = configurable.get("memory", None)
+        if configurable_memory is not None and isinstance(configurable_memory, BaseMemory):
+            return configurable_memory.load_memory_variables(input)
+        return {"history": []}
+
+    def _save_context(self, run: Run, config: RunnableConfig) -> None:
+        configurable = config.get("configurable", {})
+        configurable_memory = configurable.get("memory", None)
+        if configurable_memory is not None and isinstance(configurable_memory, BaseMemory):
+            configurable_memory.save_memory_variables(run)
 
     def debug(self, app_id: uuid.UUID):
         """聊天接口"""
@@ -80,16 +97,19 @@ class AppHandler:
         )
 
         # 4.创建链应用
-        chain = RunnablePassthrough.assign(
-            history=RunnableLambda(memory.load_memory_variables) | itemgetter("history")
-        ) | prompt | llm | StrOutputParser()
+        chain = (
+            # RunnablePassthrough.assign给输入补上"history"字段并传递给 prompt
+            (RunnablePassthrough.assign(
+                history=RunnableLambda(self._load_memory_variables) | itemgetter("history"),
+            ) | prompt | llm | StrOutputParser()).with_listeners(on_end=self._save_context)
+        )
 
         # 5.调用链获取响应内容
         chain_input = {"query": req.query.data}
-        content = chain.invoke(chain_input)
-
-        # 6.将结果储存到存储中
-        memory.save_context(chain_input, {"output": content})
+        content = chain.invoke(
+            chain_input,
+            config={"configurable": {"memory": memory}},
+        )
 
         return success_json({"content": content})
 
